@@ -1,0 +1,6 @@
+#ifndef CUSTOM_BOARD_H
+#define CUSTOM_BOARD_H
+
+#define BUTTON_PULL NRF_GPIO_PIN_PULLUP
+
+#endif

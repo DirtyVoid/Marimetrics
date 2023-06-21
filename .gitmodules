@@ -1,0 +1,15 @@
+[submodule "globe/third_party/BMM150-Sensor-API"]
+	path = globe/third_party/BMM150-Sensor-API
+	url = https://github.com/BoschSensortec/BMM150-Sensor-API.git
+[submodule "globe/third_party/cJSON"]
+	path = globe/third_party/cJSON
+	url = https://github.com/DaveGamble/cJSON.git
+[submodule "globe/third_party/preprocessor"]
+	path = globe/third_party/preprocessor
+	url = https://github.com/boostorg/preprocessor.git
+[submodule "globe/third_party/bmi160_driver"]
+	path = globe/third_party/bmi160_driver
+	url = git@bitbucket.org:marimetrics/bmi160_driver.git
+[submodule "globe/third_party/micro-ecc"]
+	path = globe/third_party/micro-ecc
+	url = https://github.com/kmackay/micro-ecc.git

@@ -1,0 +1,230 @@
+#!/usr/bin/python3
+import argparse
+import subprocess
+import atexit
+import signal
+import sys
+import re
+from pathlib import Path
+import json
+import tempfile
+import os
+from gateway import ble
+from dev_utils.image_hashes import save_image_hashes
+from dev_utils.process import run, root
+from dev_utils.build import generate_build_settings, make_dfu_package
+from dev_utils.debug import debug_application, get_device_id, flash_target
+
+try:
+    # This module is only required and available from within GDB
+    import gdb
+except ModuleNotFoundError:
+    pass
+
+
+def add_use_debug_dfu_key_to_parser(parser):
+    parser.add_argument(
+        "--use-debug-dfu-key",
+        action="store_true",
+        help="""
+
+use the debug DFU key. Both private and public keys are stored in the
+repository. The production key is used otherwise. Only the public production
+key is stored in the repository.
+
+""",
+    )
+
+
+parser = argparse.ArgumentParser(
+    description="""
+
+Collection of firmware development utilities. This script takes a sub-command
+as an argument to run. Commands that interact with a device ('debug', 'flash',
+etc.) require a device to be connected to the development machine via a J-Link
+debugger.
+
+Here is a quick summary of the available commands: the primary command,
+'flash', builds the firmware and flashes it to the target. 'debug' flashes a
+debug build to the target within GDB, allowing interactive debugging.
+
+"""
+)
+subparsers = parser.add_subparsers(
+    dest="command",
+    description="""
+
+Use the --help argument with any of these commands for more detail.
+
+""",
+    required=True,
+)
+
+flash_parser = subparsers.add_parser(
+    "flash",
+    description="""
+
+Flash firmware to a connected device. Release builds are used for all images.
+After flashing, the device is reset and the application is run.
+
+
+""",
+)
+flash_parser.add_argument(
+    "hw_rev",
+    choices=["bare", "4.2", "4.3", "dev"],
+    nargs="?",
+    help="""
+The board's hardware revision (optional).
+
+If provided, this information is flashed to the board for self-identification.
+This process must be done atleast once per board, but does not need to be
+redone as the hardware identifcation information is not erased when the board
+is flashed again.""",
+)
+flash_parser.add_argument(
+    "id_out_path",
+    nargs="?",
+    help="""
+File to append the device's ID to.
+""",
+)
+add_use_debug_dfu_key_to_parser(flash_parser)
+
+debug_parser = subparsers.add_parser(
+    "debug",
+    description="""
+
+Debug the target with a debug-build application image and GDB. Please read the
+GDB and J-Link documentation for more details on remote debugging with GDB. A
+few custom commands are available withing GDB: 'flash' to rebuild and flash the
+target, and 'reset' to reset the target. After the target is reset, use the
+'continue' ('c') command to begin execution.
+
+""",
+)
+add_use_debug_dfu_key_to_parser(debug_parser)
+
+debug_bootloader_parser = subparsers.add_parser("debug-bootloader")
+add_use_debug_dfu_key_to_parser(debug_bootloader_parser)
+
+make_dfu_pkg_parser = subparsers.add_parser(
+    "make-dfu-pkg",
+    description="""
+
+Make a Device Firmware Upgrade (DFU) package. The package is a zip file.
+
+""",
+)
+make_dfu_pkg_parser.add_argument("hardware_type", choices=["nrf52832", "nrf52840"])
+make_dfu_pkg_parser.add_argument("out_file", help="Path to output zip file.")
+make_dfu_pkg_parser.add_argument(
+    "--app-version-bump",
+    action="store_true",
+    help="""
+increment the app version by one when compiling the package. This is useful
+in development to force a firmware update.
+""",
+)
+make_dfu_pkg_parser.add_argument(
+    "--bootloader-version-bump",
+    action="store_true",
+    help="""
+increment the bootloader version by one.
+""",
+)
+make_dfu_pkg_parser.add_argument(
+    "--key-file",
+    default=None,
+    help="""
+
+path to private key file (.pem format). This argument must be provided if
+the debug DFU key is not used.
+
+""",
+)
+
+save_image_hashes_parser = subparsers.add_parser(
+    "save-image-hashes",
+    description="""
+
+Generate hashes of the firmware images and stage them in git. The image hashes
+are used to automatically generate the versions for each image by counting the
+number of file revisions. This versioning scheme means that the image version
+is only incremented when the binary image changes.
+
+""",
+)
+
+ble_parser = subparsers.add_parser(
+    "ble",
+    description="""
+
+Run a BLE command.
+
+""",
+)
+ble_subparsers = ble_parser.add_subparsers(dest="subcommand")
+
+ble_subparsers.add_parser(
+    "scan",
+    description="""
+scan for all nearby devices
+""",
+)
+
+generate_build_settings_parser = subparsers.add_parser("generate-build-settings")
+generate_build_settings_parser.add_argument("output_file")
+
+# Make sure submodules are pulled in and up to date
+run(["git", "submodule", "update", "--init", "--recursive"])
+
+
+def setup_rtags():
+    target_paths_kwargs = {
+        "hardware_type": "nrf52840",
+        "build_type": "dev",
+    }
+    app_path, app_hex_path = target_paths("application", **target_paths_kwargs)
+    compile_commands_dir = app_path.parent
+    run(["rc", "-J", compile_commands_dir])
+
+
+if __name__ == "__main__":
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
+
+    args = parser.parse_args()
+
+    if hasattr(args, "use_debug_dfu_key"):
+        use_debug_dfu_key = args.use_debug_dfu_key
+
+    if args.command == "flash":
+        dev_id = get_device_id()
+        print("*** Device ID: {} ({})".format(dev_id[-4:], dev_id))
+        flash_target("prod", args.hw_rev)
+        if args.id_out_path:
+            with open(args.id_out_path, "a") as f:
+                f.write(dev_id + "\n")
+    elif args.command == "debug":
+        debug_application("application")
+    elif args.command == "debug-bootloader":
+        debug_application("bootloader")
+    elif args.command == "make-dfu-pkg":
+        make_dfu_package(
+            args.out_file,
+            args.hardware_type,
+            key_file=args.key_file,
+            app_version_bump=args.app_version_bump,
+            bootloader_version_bump=args.bootloader_version_bump,
+        )
+    elif args.command == "generate-build-settings":
+        generate_build_settings(args.output_file)
+    elif args.command == "save-image-hashes":
+        save_image_hashes()
+    elif args.command == "ble" and args.subcommand == "scan":
+        ble.ble()
+    elif args.command == "ble":
+        ble.ble(ble.list_characteristics())

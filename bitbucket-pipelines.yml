@@ -1,0 +1,12 @@
+image: ubuntu:20.04
+
+pipelines:
+  default:
+    - step:
+        script:
+          - apt-get update
+          - DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends make cmake clang-format gcc-arm-none-eabi libnewlib-arm-none-eabi git ca-certificates ssh
+          - git submodule update --init
+          - ./scripts/build-prepare
+          - cd build
+          - make lint
