@@ -46,9 +46,6 @@ struct app_config {
     CONFIG_EXPANSION(APP_CONFIG_MEMBER_EXPANSION)
 };
 
-cJSON *app_config_to_json(const struct app_config *config);
-struct app_config app_config_from_json(cJSON *json);
-
 cJSON *load_app_config_json();
 struct app_config load_app_config();
 void save_app_config(const struct app_config *config);

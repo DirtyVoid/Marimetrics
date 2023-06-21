@@ -4,7 +4,6 @@
 #include <bmi160.h>
 #include <boost/preprocessor.hpp>
 #include <cJSON.h>
-#include <cJSON_Utils.h>
 
 /* ff.h must be included before diskio.h as definitions are required in
  * diskio.h */

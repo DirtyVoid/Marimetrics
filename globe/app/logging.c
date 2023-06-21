@@ -64,9 +64,8 @@ void log_dump() {
     f_closedir(&dir);
 }
 
-static void print_header_line(FILE *active_log, const struct log_column_def *defs,
-                              size_t n_cols, const char *header_name,
-                              size_t field_offset) {
+void print_header_line(FILE *active_log, const struct log_column_def *defs,
+                       size_t n_cols, const char *header_name, size_t field_offset) {
     fprintf(active_log, "#%s=", header_name);
     bool first = true;
     for (size_t i = 0; i < n_cols; i++) {
@@ -126,7 +125,7 @@ FILE *log_start(const struct app_config *conf, const struct log_column_def *cols
         fprintf(active_log, "#FILE_START_TIME_UTC=%d/%02d/%02dT%02d:%02d:%02d.%03d\n",
                 year, month, day, hour, min, sec, ms);
     }
-  
+
     fprintf(active_log, "#DATA_FILE_REVISION=C\n");
     fprintf(active_log, "#DELIMITER=,\n");
     fprintf(active_log, "#FIRMWARE_REVISION=%s\n", revision);

@@ -8,7 +8,7 @@ target_include_directories(bmm150 SYSTEM INTERFACE BMM150-Sensor-API)
 
 #the cJSON CMakeLists is avoided because its a configuration nightmare.The
 #library is only a single source file anyways.
-add_library(cjson cJSON/cJSON.c cJSON/cJSON_Utils.c)
+add_library(cjson cJSON/cJSON.c)
 target_include_directories(cjson SYSTEM INTERFACE cJSON)
 target_link_libraries(cjson INTERFACE m)
 

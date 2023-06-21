@@ -104,7 +104,10 @@ cJSON *load_app_config_json() {
     return json;
 }
 
-struct app_config app_config_from_json(cJSON *json) {
+struct app_config load_app_config() {
+
+    cJSON *json = load_app_config_json();
+
     struct app_config conf = {};
 
 #define CONFIG_LOAD_JSON_config_string(name, string, default)                          \
@@ -123,33 +126,13 @@ struct app_config app_config_from_json(cJSON *json) {
     CONFIG_LOAD_JSON_2(type, name, string, default)
     CONFIG_EXPANSION(CONFIG_LOAD_JSON);
 
-    return conf;
-}
-
-struct app_config load_app_config() {
-    cJSON *json = load_app_config_json();
-    struct app_config conf = app_config_from_json(json);
     cJSON_Delete(json);
+
     validate_config(&conf);
     return conf;
 }
 
-void save_app_config_json(cJSON *json) {
-    char *serialized_config = cJSON_Print(json);
-
-    FILE *file = open_config_file("w");
-    assert(file);
-
-    size_t nb = strlen(serialized_config);
-    size_t nwritten = fwrite(serialized_config, 1, nb, file);
-    assert(nwritten == nb);
-
-    free(serialized_config);
-
-    fclose(file);
-}
-
-cJSON *app_config_to_json(const struct app_config *config) {
+void save_app_config(const struct app_config *config) {
     validate_config(config);
 
     cJSON *json = cJSON_CreateObject();
@@ -168,17 +151,19 @@ cJSON *app_config_to_json(const struct app_config *config) {
     CONFIG_STORE_JSON_2(type, name, string)
     CONFIG_EXPANSION(CONFIG_STORE_JSON);
 
-    return json;
-}
-
-void save_app_config(const struct app_config *config) {
-    validate_config(config);
-
-    cJSON *json = app_config_to_json(config);
-
-    save_app_config_json(json);
-
+    char *serialized_config = cJSON_Print(json);
     cJSON_Delete(json);
+
+    FILE *file = open_config_file("w");
+    assert(file);
+
+    size_t nb = strlen(serialized_config);
+    size_t nwritten = fwrite(serialized_config, 1, nb, file);
+    assert(nwritten == nb);
+
+    free(serialized_config);
+
+    fclose(file);
 
 #ifndef NDEBUG
     const struct app_config loaded_config = load_app_config(dir_path);

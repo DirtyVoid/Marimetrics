@@ -256,8 +256,7 @@ static void ble_stack_init(void) {
 
 void ble_update_label(const char *label) {
     device_name_set(label);
-    if (ble_interface.cur_conn_handle == BLE_CONN_HANDLE_INVALID)
-        advertising_reinit();
+    advertising_reinit();
 }
 
 static struct ble_char *find_unallocated_ble_char() {
